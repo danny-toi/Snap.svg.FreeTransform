@@ -244,7 +244,8 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
 
                 ft.handles[axis].disc = paper
                     .circle(ft.attrs.center.x, ft.attrs.center.y, ft.opts.size.axes)
-                    .attr(ft.opts.attrs);
+                    .attr(ft.opts.attrs)
+                    .attr('cursor', 'crosshair');
 
                 // If the rotation is disabled, hide the handle.
                 if (!ft.opts.rotate.length) {
@@ -264,7 +265,7 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
 
                 ft.handles.bbox = [];
 
-                var i, handle;
+                var i, handle, cursor;
 
                 for (i = (ft.opts.scale.indexOf('bboxCorners') >= 0 ? 0 : 4); i < (ft.opts.scale.indexOf('bboxSides') === -1 ? 4 : 8); i ++) {
                     handle = {
@@ -272,9 +273,16 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
                         isCorner: i < 4
                     };
 
+                    if (!handle.isCorner) {
+                        cursor = (handle.axis == 'x') ? 'e-resize' : 'n-resize';
+                    } else {
+                        cursor = (handle.axis == 'x') ? 'sw-resize' : 'nw-resize';
+                    }
+
                     handle.element = paper
                         .rect(ft.attrs.center.x, ft.attrs.center.y, ft.opts.size[handle.isCorner ? 'bboxCorners' : 'bboxSides'] * 2, ft.opts.size[handle.isCorner ? 'bboxCorners' : 'bboxSides'] * 2)
-                        .attr(ft.opts.attrs);
+                        .attr(ft.opts.attrs)
+                        .attr('cursor', cursor);
 
                     ft.handles.bbox[i] = handle;
                 }
