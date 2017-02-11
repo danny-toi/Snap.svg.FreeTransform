@@ -3,6 +3,8 @@ Snap.svg.FreeTransform
 
   Free transform tool for [Snap.svg](http://snapsvg.io/) elements and sets with many options. Supports snap-to-grid dragging, scaling and rotating with a specified interval and range.
 
+  Example can be found at http://svg.dabbles.info/Snap.svg.FreeTransform/ 
+
   Raphael version that this was based from can be found at https://github.com/AliasIO/Raphael.FreeTransform
 
   Forked from https://github.com/danny-toi/Snap.svg.FreeTransform (will try and feed back updates)
