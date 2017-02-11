@@ -744,9 +744,9 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
                     };
 
                 item.el.transform([
-                    'R' + rotate, center.x, center.y,
-                    'S' + scale.x, scale.y, center.x, center.y,
-                    'T' + translate.x, translate.y
+                    't' + translate.x, translate.y,
+                    'r' + rotate, center.x, center.y,
+                    's' + scale.x, scale.y, center.x, center.y
                 ].join());
 
                 asyncCallback(['apply']);
