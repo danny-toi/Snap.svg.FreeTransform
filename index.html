@@ -27,7 +27,19 @@
                         fill: '#1e609d'
                     });
 
-            paper.freeTransform(object);
+            var ft = paper.freeTransform(object, { snap: { rotate: 1 }, size: 8  });
+            object.data('ftStatus', 1);
+	    object.dblclick( function() {
+
+                if( object.data('ftStatus' ) ) {
+                    ft.hideHandles();
+                    object.data('ftStatus',0);
+                } else {
+                    ft.showHandles();
+                    object.data('ftStatus',1);
+                }
+
+            });
         </script>
     </body>
 </html>
