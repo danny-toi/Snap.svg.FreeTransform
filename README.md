@@ -7,7 +7,6 @@ Snap.svg.FreeTransform
 
   Forked from https://github.com/danny-toi/Snap.svg.FreeTransform (will try and feed back updates)
 
-  ```
 
 Options
 -------
