@@ -230,7 +230,7 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
         ft.showHandles = function() {
             ft.hideHandles();
 
-            ft.group = paper.g();
+            ft.group = paper.g().transform( ft.origTransform );
 
             ft.axes.map(function(axis) {
                 ft.handles[axis] = {};

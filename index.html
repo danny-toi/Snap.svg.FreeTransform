@@ -21,7 +21,7 @@
         <script type="text/javascript">
             var paper = Snap('#main-container'),
                 object = paper
-                    .circle(50, 50, 50)
+                    .rect(50, 50, 100, 50)
                     .attr({
                         cursor: 'move',
                         fill: '#1e609d',
@@ -29,12 +29,10 @@
                     });
 
             var ft = paper.freeTransform(object, { snap: { rotate: 1 }, size: 8, draw: 'bbox'  });
-
           
             ft.attrs.rotate = 45;
-            ft.attrs.scale.x = 0.5;
+            ft.attrs.scale.x = 1;
             ft.apply();
-console.log( ft );
 
             object.data('ftStatus', 1);
 
