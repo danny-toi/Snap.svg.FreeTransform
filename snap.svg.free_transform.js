@@ -114,7 +114,8 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
                 },
                 size: 4
             },
-            subject: subject
+            subject: subject,
+            origTransform: subject.transform()
         };
 
         /**
@@ -229,10 +230,12 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
         ft.showHandles = function() {
             ft.hideHandles();
 
+            ft.group = paper.g();
+
             ft.axes.map(function(axis) {
                 ft.handles[axis] = {};
 
-                ft.handles[axis].line = paper
+                ft.handles[axis].line = ft.group
                     .path([
                         ['M', ft.attrs.center.x + ft.attrs.size.x / 2, ft.attrs.center.y]
                     ])
@@ -242,7 +245,7 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
                         opacity: .5
                     });
 
-                ft.handles[axis].disc = paper
+                ft.handles[axis].disc = ft.group
                     .circle(ft.attrs.center.x, ft.attrs.center.y, ft.opts.size.axes)
                     .attr(ft.opts.attrs)
                     .attr('cursor', 'crosshair');
@@ -254,7 +257,7 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
             });
 
             if (ft.opts.draw.indexOf('bbox') >= 0) {
-                ft.bbox = paper
+                ft.bbox = ft.group
                     .path('')
                     .attr({
                         stroke: ft.opts.attrs.stroke,
@@ -279,7 +282,7 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
                         cursor = (handle.axis == 'x') ? 'sw-resize' : 'nw-resize';
                     }
 
-                    handle.element = paper
+                    handle.element = ft.group
                         .rect(ft.attrs.center.x, ft.attrs.center.y, ft.opts.size[handle.isCorner ? 'bboxCorners' : 'bboxSides'] * 2, ft.opts.size[handle.isCorner ? 'bboxCorners' : 'bboxSides'] * 2)
                         .attr(ft.opts.attrs)
                         .attr('cursor', cursor);
@@ -289,7 +292,7 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
             }
 
             if (ft.opts.draw.indexOf('circle') !== -1) {
-                ft.circle = paper
+                ft.circle = ft.group
                     .circle(0, 0, 0)
                     .attr({
                         stroke: ft.opts.attrs.stroke,
@@ -301,7 +304,7 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
             if (ft.opts.drag.indexOf('center') !== -1) {
                 ft.handles.center = {};
 
-                ft.handles.center.disc = paper
+                ft.handles.center.disc = ft.group
                     .circle(ft.attrs.center.x, ft.attrs.center.y, ft.opts.size.center)
                     .attr(ft.opts.attrs);
             }
@@ -744,6 +747,7 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
                     };
 
                 item.el.transform([
+                    ft.origTransform,
                     't' + translate.x, translate.y,
                     'r' + rotate, center.x, center.y,
                     's' + scale.x, scale.y, center.x, center.y
@@ -753,6 +757,8 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
 
                 ft.updateHandles();
             });
+
+            ft.group.transform( ft.origTransform );
 
             return ft;
         };
