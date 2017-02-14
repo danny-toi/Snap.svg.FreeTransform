@@ -115,9 +115,8 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
                 size: 4
             },
             subject: subject,
-            origTransform: subject.transform()
+            origTransform: subject.transform().localMatrix
         };
-
         /**
          * Update handles based on the element's transformations.
          */
@@ -745,9 +744,7 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
                         x: ft.attrs.translate.x - ft.offset.translate.x,
                         y: ft.attrs.translate.y - ft.offset.translate.y
                     };
-
-                item.el.transform([
-                    ft.origTransform,
+                item.el.transform(ft.origTransform.toTransformString() + [
                     't' + translate.x, translate.y,
                     'r' + rotate, center.x, center.y,
                     's' + scale.x, scale.y, center.x, center.y
