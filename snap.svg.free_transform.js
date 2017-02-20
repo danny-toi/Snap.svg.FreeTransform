@@ -29,16 +29,29 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
     // This is for dragging, pass in the element with the transform, eg a rotate dragger/handlers
     // Get a new x,y for the cursor, then subtract from the original point accounting also for its matrix
     // Hmm I feel like this could be simplified! Check through globalToLocal and see if some is redundant
-    
-    Element.prototype.getTransformedDx = function( el, ox, oy, x, y ) {
-        var cursorPoint = this.getCursorPoint( x, y );
-        var pt = this.paper.node.createSVGPoint();
-        pt.x = cursorPoint.x - ox;
-        pt.y = cursorPoint.y - oy;
-        var matrix = el.node.getScreenCTM().inverse();
-        matrix.e = matrix.f = 0;		// remove the transform part. I can't quite remember now the logic of this anymore! see S.O
-        return pt.matrixTransform( matrix );
+    // Superceded, but leaving in case of use 
+//    Element.prototype.getTransformedDx = function( el, ox, oy, x, y ) {
+//        var cursorPoint = this.getCursorPoint( x, y );
+//        var pt = this.paper.node.createSVGPoint();
+//        pt.x = cursorPoint.x - ox;
+//        pt.y = cursorPoint.y - oy;
+//        var matrix = el.node.getScreenCTM().inverse();
+//        matrix.e = matrix.f = 0;		// remove the transform part. I can't quite remember now the logic of this anymore! see S.O
+//        return pt.matrixTransform( matrix );
+//    }
+
+    // otx, oty are already transformed to the correct coord space, x,y aren't, may want to change to be consistent
+    Element.prototype.getTransformedDrag = function( ft, otx, oty, x, y ) {
+        var xy = this.getCursorPoint( x, y );
+        var tdx = {};
+        var snapInvMatrix = ft.origGlobalMatrix.invert();
+
+        snapInvMatrix.e = snapInvMatrix.f = 0;
+        tdx.x = snapInvMatrix.x( xy.x - otx, xy.y - oty );
+        tdx.y = snapInvMatrix.y( xy.x - otx, xy.y - oty );
+        return tdx;
     }
+
 
     Paper.prototype.freeTransform = function(subject, options, callback) {
         // Enable method chaining. #### This causes conflicts with group elements, as it thinks a group is a paper
@@ -145,6 +158,9 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
             },
             subject: subject,
             origTransform: subject.transform().localMatrix,
+            origGlobalMatrix: subject.transform().globalMatrix,
+            origDiffMatrix:   subject.transform().diffMatrix,
+            origLocalMatrix:  subject.transform().localMatrix,
         };
         /**
          * Update handles based on the element's transformations.
@@ -258,7 +274,7 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
         ft.showHandles = function() {
             ft.hideHandles();
 
-            ft.group = paper.g().transform( ft.origTransform );
+            ft.group = paper.g().transform( ft.origGlobalMatrix );
 
             ft.axes.map(function(axis) {
                 ft.handles[axis] = {};
@@ -347,10 +363,11 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
                     scale  = ft.opts.scale .indexOf('axis' + axis.toUpperCase()) !== -1;
 
                 ft.handles[axis].disc.drag(function(dx, dy, x, y) {
-                    var localPt = this.getTransformedDx( ft.group, this.data('op').x, this.data('op').y, x, y );
+                    // var localPt = this.getTransformedDx( ft.group, this.data('op').x, this.data('op').y, x, y );
+                    var tdx = this.getTransformedDrag( ft, this.data('op').x, this.data('op').y, x, y );
 
-                    var cx = localPt.x + ft.handles[axis].disc.ox,
-                        cy = localPt.y + ft.handles[axis].disc.oy;
+                    var cx = tdx.x + ft.handles[axis].disc.ox,
+                        cy = tdx.y + ft.handles[axis].disc.oy;
 
                     var mirrored = {
                         x: ft.o.scale.x < 0,
@@ -404,7 +421,8 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
                 ft.handles.bbox.map(function(handle) {
                     handle.element.drag(function(dx, dy, x, y) {
 
-                        var localPt = this.getTransformedDx( ft.group, this.data('op').x, this.data('op').y, x, y );
+                        var tdx = this.getTransformedDrag( ft, this.data('op').x, this.data('op').y, x, y );
+                        // var localPt = this.getTransformedDx( ft.group, this.data('op').x, this.data('op').y, x, y );
                         var sin, cos, rx, ry, rdx, rdy, mx, my, sx, sy,
                             previous = cloneObj(ft.attrs);
 
@@ -412,8 +430,8 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
                         cos = ft.o.rotate.cos;
 
                         // First rotate dx, dy to element alignment.
-                        rx = localPt.x * cos - localPt.y * sin;
-                        ry = localPt.x * sin + localPt.y * cos;
+                        rx = tdx.x * cos - tdx.y * sin;
+                        ry = tdx.x * sin + tdx.y * cos;
 
                         rx *= Math.abs(handle.x);
                         ry *= Math.abs(handle.y);
@@ -428,8 +446,8 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
                         };
 
                         // Mouse position, relative to element center after translation.
-                        mx = ft.o.handlePos.cx + localPt.x - ft.attrs.center.x - ft.attrs.translate.x;
-                        my = ft.o.handlePos.cy + localPt.y - ft.attrs.center.y - ft.attrs.translate.y;
+                        mx = ft.o.handlePos.cx + tdx.x - ft.attrs.center.x - ft.attrs.translate.x;
+                        my = ft.o.handlePos.cy + tdx.y - ft.attrs.center.y - ft.attrs.translate.y;
                         // Position rotated to align with element.
                         rx = mx * cos - my * sin;
                         ry = mx * sin + my * cos;
@@ -532,10 +550,12 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
 
             if (rotate || scale) {
                 subject.drag(function(dx, dy, x, y) {
-                    var localPt = this.getTransformedDx( ft.group, this.data('op').x, this.data('op').y, x, y );
+
+                    // var localPt = this.getTransformedDx( ft.group, this.data('op').x, this.data('op').y, x, y );
+                    var tdx = this.getTransformedDrag( ft, this.data('op').x, this.data('op').y, x, y );
 
                     if (rotate) {
-                        var rad = Math.atan2(localPt.y - ft.o.center.y - ft.o.translate.y, localPt.x - ft.o.center.x - ft.o.translate.x);
+                        var rad = Math.atan2(tdx.y - ft.o.center.y - ft.o.translate.y, tdx.x - ft.o.center.x - ft.o.translate.x);
                         ft.attrs.rotate = ft.o.rotate + Snap.deg(rad) - ft.o.deg;
                     }
 
@@ -633,25 +653,25 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
             return ft;
         };
 
+        // Drag main element
         ft.attachHandlers = function(draggables) {
             draggables.map(function (draggable) {
                 draggable.drag(function (dx, dy, ax, ay) {
 
-                    var localPt = this.getTransformedDx( ft.group, this.data('op').x, this.data('op').y, ax, ay );
+                    var tdx = this.getTransformedDrag( ft, this.data('op').x, this.data('op').y, ax, ay );
 
-                    ft.attrs.translate.x = ft.o.translate.x + localPt.x;
-                    ft.attrs.translate.y = ft.o.translate.y + localPt.y;
+                    ft.attrs.translate.x = ft.o.translate.x + tdx.x;
+                    ft.attrs.translate.y = ft.o.translate.y + tdx.y;
 
                     var bbox = cloneObj(ft.o.bbox);
-                    bbox.x += dx;
-                    bbox.y += dy;
+                    bbox.x += tdx.x;
+                    bbox.y += tdx.y;
 
                     applyLimits(bbox);
 
                     asyncCallback(['drag']);
                     ft.apply();
                 }, function( x, y, ev ) {
-
                     this.data('op', this.getCursorPoint( x, y ));
 
                     // Offset values.
@@ -802,7 +822,7 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
                 ft.updateHandles();
             });
 
-            ft.group.transform( ft.origTransform );
+            ft.group.transform( ft.origGlobalMatrix );
 
             return ft;
         };
