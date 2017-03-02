@@ -745,6 +745,10 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
             if (ft.opts.rotate.indexOf('axisX') >= 0 || ft.opts.scale.indexOf('axisX') >= 0) {
                 ft.axes.push('x');
             }
+            if (ft.opts.rotate.indexOf('axisY') >= 0 || ft.opts.scale.indexOf('axisY') >= 0) {
+                ft.axes.push('y');
+            }
+
 
             ['drag', 'rotate', 'scale'].map(function (option) {
                 if (!ft.opts.snapDist[option]) {
