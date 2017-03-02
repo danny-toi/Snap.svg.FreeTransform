@@ -135,6 +135,7 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
                     stroke: '#1e609d'
                 },
                 distance: 1.2,
+                discDistance: 45,
                 drag: true,
                 draw: ['bbox'],
                 keepRatio: false,
@@ -187,8 +188,8 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
                     if (!ft.handles[axis]) {
                         return;
                     }
-                    var cx = ft.attrs.center.x + ft.attrs.translate.x + (radius[axis] + 25) * Math.cos(rad[axis]),
-                        cy = ft.attrs.center.y + ft.attrs.translate.y + (radius[axis] + 25) * Math.sin(rad[axis]);
+                    var cx = ft.attrs.center.x + ft.attrs.translate.x + (radius[axis] + ft.opts.discDistance) * Math.cos(rad[axis]),
+                        cy = ft.attrs.center.y + ft.attrs.translate.y + (radius[axis] + ft.opts.discDistance) * Math.sin(rad[axis]);
 
                     ft.handles[axis].disc.attr({
                         cx: cx,
@@ -273,7 +274,7 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
          */
         ft.showHandles = function() {
             ft.hideHandles();
-
+//test!!
             ft.group = paper.g().transform( ft.origGlobalMatrix );
 
             ft.axes.map(function(axis) {
