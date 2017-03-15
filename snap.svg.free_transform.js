@@ -134,11 +134,17 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
                     fill: '#fff',
                     stroke: '#1e609d'
                 },
+                axisLineClass: 'ftaxisline',
+                bboxClass: 'ftbbox',
+                centerDiscClass: 'ftcenterdisc',
+                centerCircleClass: 'ftcentercircle', 
                 distance: 1.2,
                 discDistance: 45,
+                discClass: 'ftdisc',
                 drag: true,
                 draw: ['bbox'],
                 keepRatio: false,
+                handleClass: 'fthandle',
                 range: {
                     rotate: [-180, 180],
                     scale: [-99999, 99999]
@@ -288,12 +294,14 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
                         stroke: ft.opts.attrs.stroke,
                         'stroke-dasharray': '4,3',
                         opacity: .5
-                    });
+                    })
+                    .addClass( ft.opts.axisLineClass );
 
                 ft.handles[axis].disc = ft.group
                     .circle(ft.attrs.center.x, ft.attrs.center.y, ft.opts.size.axes)
                     .attr(ft.opts.attrs)
-                    .attr('cursor', 'crosshair');
+                    .attr('cursor', 'crosshair')
+                    .addClass( ft.opts.discClass ) ;
 
                 // If the rotation is disabled, hide the handle.
                 if (!ft.opts.rotate.length) {
@@ -309,7 +317,8 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
                         'stroke-dasharray': '4,3',
                         fill: 'none',
                         opacity: .5
-                    });
+                    })
+                    .addClass( ft.opts.bboxClass );
 
                 ft.handles.bbox = [];
 
@@ -330,7 +339,8 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
                     handle.element = ft.group
                         .rect(ft.attrs.center.x, ft.attrs.center.y, ft.opts.size[handle.isCorner ? 'bboxCorners' : 'bboxSides'] * 2, ft.opts.size[handle.isCorner ? 'bboxCorners' : 'bboxSides'] * 2)
                         .attr(ft.opts.attrs)
-                        .attr('cursor', cursor);
+                        .attr('cursor', cursor)
+                        .addClass( ft.opts.handleClass);
 
                     ft.handles.bbox[i] = handle;
                 }
@@ -343,7 +353,8 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
                         stroke: ft.opts.attrs.stroke,
                         'stroke-dasharray': '4,3',
                         opacity: .3
-                    });
+                    })
+                    .addClass( ft.opts.centerCircleClass );
             }
 
             if (ft.opts.drag.indexOf('center') !== -1) {
@@ -351,7 +362,8 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
 
                 ft.handles.center.disc = ft.group
                     .circle(ft.attrs.center.x, ft.attrs.center.y, ft.opts.size.center)
-                    .attr(ft.opts.attrs);
+                    .attr(ft.opts.attrs)
+                    .addClass( ft.opts.centerDiscClass );
             }
 
             // Drag x, y handles.
@@ -651,6 +663,11 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
                 ft.circle = null;
             }
 
+            if (ft.group) {
+                ft.group.remove();
+                ft.group = null;
+            }
+
             return ft;
         };
 
@@ -745,6 +762,10 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
             if (ft.opts.rotate.indexOf('axisX') >= 0 || ft.opts.scale.indexOf('axisX') >= 0) {
                 ft.axes.push('x');
             }
+            if (ft.opts.rotate.indexOf('axisY') >= 0 || ft.opts.scale.indexOf('axisY') >= 0) {
+                ft.axes.push('y');
+            }
+
 
             ['drag', 'rotate', 'scale'].map(function (option) {
                 if (!ft.opts.snapDist[option]) {
@@ -833,7 +854,7 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
          */
         ft.unplug = function() {
             var attrs = ft.attrs;
-
+console.log('unplug');
             ft.hideHandles();
 
             delete subject.freeTransform;
