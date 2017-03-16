@@ -1,5 +1,9 @@
 'use strict';
 
+SVGElement.prototype.getTransformToElement = SVGElement.prototype.getTransformToElement || function(elem) {
+        return elem.getScreenCTM().inverse().multiply(this.getScreenCTM());
+    };
+
 Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
     Element.prototype.show = function() {
         this.attr('display', '');
@@ -9,12 +13,51 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
         this.attr('display', 'none');
     };
 
+    Element.prototype.globalToLocal = function( globalPoint ) {
+        var globalToLocal = this.node.getTransformToElement( this.paper.node ).inverse();
+        globalToLocal.e = globalToLocal.f = 0;
+        return globalPoint.matrixTransform( globalToLocal );
+    };
+
+    // Get a cursor point accounting for the screen matrix conversion, eg zoomed in scrolled etc
+    Element.prototype.getCursorPoint = function( x, y ) {
+        var pt = this.paper.node.createSVGPoint();      
+        pt.x = x; pt.y = y;
+        return pt.matrixTransform( this.paper.node.getScreenCTM().inverse()); 
+    }
+
+    // This is for dragging, pass in the element with the transform, eg a rotate dragger/handlers
+    // Get a new x,y for the cursor, then subtract from the original point accounting also for its matrix
+    // Hmm I feel like this could be simplified! Check through globalToLocal and see if some is redundant
+    // Superceded, but leaving in case of use 
+//    Element.prototype.getTransformedDx = function( el, ox, oy, x, y ) {
+//        var cursorPoint = this.getCursorPoint( x, y );
+//        var pt = this.paper.node.createSVGPoint();
+//        pt.x = cursorPoint.x - ox;
+//        pt.y = cursorPoint.y - oy;
+//        var matrix = el.node.getScreenCTM().inverse();
+//        matrix.e = matrix.f = 0;		// remove the transform part. I can't quite remember now the logic of this anymore! see S.O
+//        return pt.matrixTransform( matrix );
+//    }
+
+    // otx, oty are already transformed to the correct coord space, x,y aren't, may want to change to be consistent
+    Element.prototype.getTransformedDrag = function( ft, otx, oty, x, y ) {
+        var xy = this.getCursorPoint( x, y );
+        var tdx = {};
+        var snapInvMatrix = ft.origGlobalMatrix.invert();
+
+        snapInvMatrix.e = snapInvMatrix.f = 0;
+        tdx.x = snapInvMatrix.x( xy.x - otx, xy.y - oty );
+        tdx.y = snapInvMatrix.y( xy.x - otx, xy.y - oty );
+        return tdx;
+    }
+
+
     Paper.prototype.freeTransform = function(subject, options, callback) {
-        // Enable method chaining.
-        if (subject.freeTransform) {
+        // Enable method chaining. #### This causes conflicts with group elements, as it thinks a group is a paper
+        if (subject.freeTransformxxxxxxxxxxxxxxx) {
             return subject.freeTransform;
         }
-
         // Add Array.map if the browser doesn't support it.
         if (!Array.prototype.hasOwnProperty('map')) {
             Array.prototype.map = function(callback, arg) {
@@ -27,7 +70,6 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
                 }
             };
         }
-
         // Add Array.indexOf if not builtin.
         if (!Array.prototype.hasOwnProperty('indexOf')) {
             Array.prototype.indexOf = function(obj, start) {
@@ -92,10 +134,17 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
                     fill: '#fff',
                     stroke: '#1e609d'
                 },
+                axisLineClass: 'ftaxisline',
+                bboxClass: 'ftbbox',
+                centerDiscClass: 'ftcenterdisc',
+                centerCircleClass: 'ftcentercircle', 
                 distance: 1.2,
+                discDistance: 45,
+                discClass: 'ftdisc',
                 drag: true,
                 draw: ['bbox'],
                 keepRatio: false,
+                handleClass: 'fthandle',
                 range: {
                     rotate: [-180, 180],
                     scale: [-99999, 99999]
@@ -114,9 +163,12 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
                 },
                 size: 4
             },
-            subject: subject
+            subject: subject,
+            origTransform: subject.transform().localMatrix,
+            origGlobalMatrix: subject.transform().globalMatrix,
+            origDiffMatrix:   subject.transform().diffMatrix,
+            origLocalMatrix:  subject.transform().localMatrix,
         };
-
         /**
          * Update handles based on the element's transformations.
          */
@@ -142,8 +194,8 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
                     if (!ft.handles[axis]) {
                         return;
                     }
-                    var cx = ft.attrs.center.x + ft.attrs.translate.x + (radius[axis] + 25) * Math.cos(rad[axis]),
-                        cy = ft.attrs.center.y + ft.attrs.translate.y + (radius[axis] + 25) * Math.sin(rad[axis]);
+                    var cx = ft.attrs.center.x + ft.attrs.translate.x + (radius[axis] + ft.opts.discDistance) * Math.cos(rad[axis]),
+                        cy = ft.attrs.center.y + ft.attrs.translate.y + (radius[axis] + ft.opts.discDistance) * Math.sin(rad[axis]);
 
                     ft.handles[axis].disc.attr({
                         cx: cx,
@@ -228,11 +280,13 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
          */
         ft.showHandles = function() {
             ft.hideHandles();
+//test!!
+            ft.group = paper.g().transform( ft.origGlobalMatrix );
 
             ft.axes.map(function(axis) {
                 ft.handles[axis] = {};
 
-                ft.handles[axis].line = paper
+                ft.handles[axis].line = ft.group
                     .path([
                         ['M', ft.attrs.center.x + ft.attrs.size.x / 2, ft.attrs.center.y]
                     ])
@@ -240,12 +294,14 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
                         stroke: ft.opts.attrs.stroke,
                         'stroke-dasharray': '4,3',
                         opacity: .5
-                    });
+                    })
+                    .addClass( ft.opts.axisLineClass );
 
-                ft.handles[axis].disc = paper
+                ft.handles[axis].disc = ft.group
                     .circle(ft.attrs.center.x, ft.attrs.center.y, ft.opts.size.axes)
                     .attr(ft.opts.attrs)
-                    .attr('cursor', 'crosshair');
+                    .attr('cursor', 'crosshair')
+                    .addClass( ft.opts.discClass ) ;
 
                 // If the rotation is disabled, hide the handle.
                 if (!ft.opts.rotate.length) {
@@ -254,14 +310,15 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
             });
 
             if (ft.opts.draw.indexOf('bbox') >= 0) {
-                ft.bbox = paper
+                ft.bbox = ft.group
                     .path('')
                     .attr({
                         stroke: ft.opts.attrs.stroke,
                         'stroke-dasharray': '4,3',
                         fill: 'none',
                         opacity: .5
-                    });
+                    })
+                    .addClass( ft.opts.bboxClass );
 
                 ft.handles.bbox = [];
 
@@ -279,31 +336,34 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
                         cursor = (handle.axis == 'x') ? 'sw-resize' : 'nw-resize';
                     }
 
-                    handle.element = paper
+                    handle.element = ft.group
                         .rect(ft.attrs.center.x, ft.attrs.center.y, ft.opts.size[handle.isCorner ? 'bboxCorners' : 'bboxSides'] * 2, ft.opts.size[handle.isCorner ? 'bboxCorners' : 'bboxSides'] * 2)
                         .attr(ft.opts.attrs)
-                        .attr('cursor', cursor);
+                        .attr('cursor', cursor)
+                        .addClass( ft.opts.handleClass);
 
                     ft.handles.bbox[i] = handle;
                 }
             }
 
             if (ft.opts.draw.indexOf('circle') !== -1) {
-                ft.circle = paper
+                ft.circle = ft.group
                     .circle(0, 0, 0)
                     .attr({
                         stroke: ft.opts.attrs.stroke,
                         'stroke-dasharray': '4,3',
                         opacity: .3
-                    });
+                    })
+                    .addClass( ft.opts.centerCircleClass );
             }
 
             if (ft.opts.drag.indexOf('center') !== -1) {
                 ft.handles.center = {};
 
-                ft.handles.center.disc = paper
+                ft.handles.center.disc = ft.group
                     .circle(ft.attrs.center.x, ft.attrs.center.y, ft.opts.size.center)
-                    .attr(ft.opts.attrs);
+                    .attr(ft.opts.attrs)
+                    .addClass( ft.opts.centerDiscClass );
             }
 
             // Drag x, y handles.
@@ -315,9 +375,12 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
                 var rotate = ft.opts.rotate.indexOf('axis' + axis.toUpperCase()) !== -1,
                     scale  = ft.opts.scale .indexOf('axis' + axis.toUpperCase()) !== -1;
 
-                ft.handles[axis].disc.drag(function(dx, dy) {
-                    var cx = dx + ft.handles[axis].disc.ox,
-                        cy = dy + ft.handles[axis].disc.oy;
+                ft.handles[axis].disc.drag(function(dx, dy, x, y) {
+                    // var localPt = this.getTransformedDx( ft.group, this.data('op').x, this.data('op').y, x, y );
+                    var tdx = this.getTransformedDrag( ft, this.data('op').x, this.data('op').y, x, y );
+
+                    var cx = tdx.x + ft.handles[axis].disc.ox,
+                        cy = tdx.y + ft.handles[axis].disc.oy;
 
                     var mirrored = {
                         x: ft.o.scale.x < 0,
@@ -350,7 +413,10 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
                     }
 
                     asyncCallback([rotate ? 'rotate' : null, scale ? 'scale' : null]);
-                }, function() {
+                }, function( x, y ) {
+
+                    this.data('op', this.getCursorPoint( x, y ));
+
                     // Offset values.
                     ft.o = cloneObj(ft.attrs);
 
@@ -366,7 +432,10 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
             // Drag bbox handles.
             if (ft.opts.draw.indexOf('bbox') >= 0 && (ft.opts.scale.indexOf('bboxCorners') !== -1 || ft.opts.scale.indexOf('bboxSides') !== -1)) {
                 ft.handles.bbox.map(function(handle) {
-                    handle.element.drag(function(dx, dy) {
+                    handle.element.drag(function(dx, dy, x, y) {
+
+                        var tdx = this.getTransformedDrag( ft, this.data('op').x, this.data('op').y, x, y );
+                        // var localPt = this.getTransformedDx( ft.group, this.data('op').x, this.data('op').y, x, y );
                         var sin, cos, rx, ry, rdx, rdy, mx, my, sx, sy,
                             previous = cloneObj(ft.attrs);
 
@@ -374,8 +443,8 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
                         cos = ft.o.rotate.cos;
 
                         // First rotate dx, dy to element alignment.
-                        rx = dx * cos - dy * sin;
-                        ry = dx * sin + dy * cos;
+                        rx = tdx.x * cos - tdx.y * sin;
+                        ry = tdx.x * sin + tdx.y * cos;
 
                         rx *= Math.abs(handle.x);
                         ry *= Math.abs(handle.y);
@@ -390,9 +459,8 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
                         };
 
                         // Mouse position, relative to element center after translation.
-                        mx = ft.o.handlePos.cx + dx - ft.attrs.center.x - ft.attrs.translate.x;
-                        my = ft.o.handlePos.cy + dy - ft.attrs.center.y - ft.attrs.translate.y;
-
+                        mx = ft.o.handlePos.cx + tdx.x - ft.attrs.center.x - ft.attrs.translate.x;
+                        my = ft.o.handlePos.cy + tdx.y - ft.attrs.center.y - ft.attrs.translate.y;
                         // Position rotated to align with element.
                         rx = mx * cos - my * sin;
                         ry = mx * sin + my * cos;
@@ -447,7 +515,9 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
                         asyncCallback(['scale']);
 
                         ft.apply();
-                    }, function() {
+                    }, function( x, y ) {
+                       this.data('op', this.getCursorPoint( x, y ));
+
                         var rotate = Snap.rad((360 - ft.attrs.rotate) % 360),
                             handlePos = {
                                 x: parseInt(handle.element.attr('x')),
@@ -493,8 +563,12 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
 
             if (rotate || scale) {
                 subject.drag(function(dx, dy, x, y) {
+
+                    // var localPt = this.getTransformedDx( ft.group, this.data('op').x, this.data('op').y, x, y );
+                    var tdx = this.getTransformedDrag( ft, this.data('op').x, this.data('op').y, x, y );
+
                     if (rotate) {
-                        var rad = Math.atan2(y - ft.o.center.y - ft.o.translate.y, x - ft.o.center.x - ft.o.translate.x);
+                        var rad = Math.atan2(tdx.y - ft.o.center.y - ft.o.translate.y, tdx.x - ft.o.center.x - ft.o.translate.x);
                         ft.attrs.rotate = ft.o.rotate + Snap.deg(rad) - ft.o.deg;
                     }
 
@@ -522,6 +596,9 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
 
                     asyncCallback([rotate ? 'rotate' : null, scale ? 'scale' : null]);
                 }, function(x, y) {
+
+                    this.data('op', this.getCursorPoint( x, y ));
+
                     // Offset values
                     ft.o = cloneObj(ft.attrs);
 
@@ -586,26 +663,35 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
                 ft.circle = null;
             }
 
+            if (ft.group) {
+                ft.group.remove();
+                ft.group = null;
+            }
+
             return ft;
         };
 
+        // Drag main element
         ft.attachHandlers = function(draggables) {
             draggables.map(function (draggable) {
-                draggable.drag(function (dx, dy) {
-                    ft.attrs.translate.x = ft.o.translate.x + dx;
-                    ft.attrs.translate.y = ft.o.translate.y + dy;
+                draggable.drag(function (dx, dy, ax, ay) {
+
+                    var tdx = this.getTransformedDrag( ft, this.data('op').x, this.data('op').y, ax, ay );
+
+                    ft.attrs.translate.x = ft.o.translate.x + tdx.x;
+                    ft.attrs.translate.y = ft.o.translate.y + tdx.y;
 
                     var bbox = cloneObj(ft.o.bbox);
-
-                    bbox.x += dx;
-                    bbox.y += dy;
+                    bbox.x += tdx.x;
+                    bbox.y += tdx.y;
 
                     applyLimits(bbox);
 
                     asyncCallback(['drag']);
-
                     ft.apply();
-                }, function() {
+                }, function( x, y, ev ) {
+                    this.data('op', this.getCursorPoint( x, y ));
+
                     // Offset values.
                     ft.o = cloneObj(ft.attrs);
 
@@ -676,6 +762,10 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
             if (ft.opts.rotate.indexOf('axisX') >= 0 || ft.opts.scale.indexOf('axisX') >= 0) {
                 ft.axes.push('x');
             }
+            if (ft.opts.rotate.indexOf('axisY') >= 0 || ft.opts.scale.indexOf('axisY') >= 0) {
+                ft.axes.push('y');
+            }
+
 
             ['drag', 'rotate', 'scale'].map(function (option) {
                 if (!ft.opts.snapDist[option]) {
@@ -743,16 +833,18 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
                         y: ft.attrs.translate.y - ft.offset.translate.y
                     };
 
-                item.el.transform([
-                    'R' + rotate, center.x, center.y,
-                    'S' + scale.x, scale.y, center.x, center.y,
-                    'T' + translate.x, translate.y
-                ].join());
 
+                item.el.transform( ft.origTransform.toTransformString() +  [
+                    't' + translate.x, translate.y,
+                    'r' + rotate, center.x, center.y,
+                    's' + scale.x, scale.y, center.x, center.y,
+                ].join())
                 asyncCallback(['apply']);
 
                 ft.updateHandles();
             });
+
+            ft.group.transform( ft.origGlobalMatrix );
 
             return ft;
         };
@@ -762,7 +854,7 @@ Snap.plugin(function(Snap, Element, Paper, global, Fragment) {
          */
         ft.unplug = function() {
             var attrs = ft.attrs;
-
+console.log('unplug');
             ft.hideHandles();
 
             delete subject.freeTransform;

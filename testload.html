@@ -19,34 +19,33 @@
         <script src="snap.svg.free_transform.js"></script>
 
         <script type="text/javascript">
-            var paper = Snap('#main-container'),
-                object = paper
-                    .rect(50, 50, 100, 50)
-                    .attr({
-                        cursor: 'move',
-                        fill: '#1e609d',
-			transform: 't200,200'
-                    });
+var s = Snap('#main-container');
 
-            var ft = paper.freeTransform(object, { snap: { rotate: 1 }, size: 8, draw: 'bbox'  });
-          
-            ft.attrs.rotate = 45;
-            ft.attrs.scale.x = 1;
-            ft.apply();
 
-            object.data('ftStatus', 1);
+Snap.load( "test.svg", function( frag ) {
+        var g = s.g();
+        g.append(frag);
+	var allG = s.selectAll('.myG');
+        allG.forEach( function( el ) {
+          var ft = s.freeTransform( el, { snap: { rotate: 1 }, size: 8, draw: 'bbox'  });
+	     el.dblclick( function() {
 
-	    object.dblclick( function() {
-
-                if( object.data('ftStatus' ) ) {
+                if( el.data('ftStatus' ) ) {
                     ft.hideHandles();
-                    object.data('ftStatus',0);
+                    el.data('ftStatus',0);
                 } else {
                     ft.showHandles();
-                    object.data('ftStatus',1);
+                    el.data('ftStatus',1);
                 }
 
             });
+
+
+        } );
+} );
+
+          
+
         </script>
     </body>
 </html>

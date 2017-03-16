@@ -1,0 +1,21 @@
+<svg>
+
+
+<g class="myG" transform="translate(350,100) rotate(45,150,150)" fill="blue">
+
+<rect class="myrects" id="myrect" x="100" y="100" width="100" height="100" transform="rotate(45,150,150)"/>
+
+<rect class="myrects" id="myrect" x="200" y="200" width="100" height="100"/>
+
+</g>
+
+<g class="myG"  fill="red">
+
+<rect class="myrects" id="myrect" x="100" y="100" width="100" height="100" transform="rotate(45,150,150)"/>
+
+<rect class="myrects" id="myrect" x="200" y="200" width="100" height="100"/>
+
+</g>
+
+
+</svg>
