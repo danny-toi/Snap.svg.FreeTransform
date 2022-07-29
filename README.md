@@ -1,6 +1,8 @@
 Snap.svg.FreeTransform
 ====================
 
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/F1F8E2YBE)
+
   Free transform tool for [Snap.svg](http://snapsvg.io/) elements and sets with many options. Supports snap-to-grid dragging, scaling and rotating with a specified interval and range.
 
   Example can be found at http://svg.dabbles.info/Snap.svg.FreeTransform/ 
